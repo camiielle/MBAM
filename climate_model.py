@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import sympy as sp
 from mbam.geodesic import Geodesic
-from mbam.finite_difference import Avv_func, AvvCD4
+from mbam.finite_difference import Avv_func, AvvCD4, jacobian_func
 from mbam.utils import initial_velocity
 from collections import namedtuple
 
@@ -24,13 +24,14 @@ from collections import namedtuple
 # 3) Tx(0)=0 as initial conditions for x=a,o
 # under these assumptions an analytical solution exists and takes a simple form
 
-
-Parameters = namedtuple('Parameters', ['λ', 'γ', 'γ0', 'F'])
+M = 6  # number of predictions
+N = 4  # number of parameters
 
 t = np.array([0.5, 1.0, 2.0])
 
+
 def r(x):
-    λ, γ, γ0, F = x.λ, x.γ, x.γ0, x.F
+    λ, γ, γ0, F = x[0], x[1], x[2], x[3]
 
     # General parameters
     b = λ + γ + γ0
@@ -56,22 +57,19 @@ def r(x):
 
     return np.hstack((Ta, To))
 
-x = Parameters(λ=1.3/8, γ=0.7/8, γ0=0.7/100, F=3.9/8)
-
-# Jacobian
+# Jacobian (computed numerically)
 def j(x):
-    return
+    jacob = jacobian_func(r, M, N)
+    return jacob(x)
 
 # Directional second derivative
-
-
 def Avv(x, v):
     return
 
-# Choose starting parameters
-x = ...
-# v = initial_velocity(x, j, Avv)
 
+# Choose starting parameters
+x = [1.3/8, 0.7/8, 0.7/100, 3.9/8]
+# v = initial_velocity(x, j, Avv)
 # standard deviations
 sigma_a = 0.1
 sigma_o = 0.1
