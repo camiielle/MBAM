@@ -58,18 +58,40 @@ def r(x):
     return np.hstack((Ta, To))
 
 # Jacobian (computed numerically)
+
+
 def j(x):
     jacob = jacobian_func(r, M, N)
     return jacob(x)
 
 # Directional second derivative
+
+
 def Avv(x, v):
-    return
+    avv_function = Avv_func(r)
+    return avv_function(x, v)
 
 
 # Choose starting parameters
 x = [1.3/8, 0.7/8, 0.7/100, 3.9/8]
-# v = initial_velocity(x, j, Avv)
-# standard deviations
-sigma_a = 0.1
-sigma_o = 0.1
+v = initial_velocity(x, j, Avv)
+
+# Construct the geodesic
+geo = Geodesic(r, j, Avv, x, v, atol=1e-2, rtol=1e-2, parameterspacenorm=False)
+
+# Integrate
+geo.integrate(480)
+
+# Plot the geodesic path to find the limit
+#
+colors = ['r', 'g', 'b', 'orange']
+labels = ['λ', 'γ', 'γ0', 'F']
+
+for i in range(4):
+    plt.plot(geo.ts, geo.xs[:, i], label=labels[i], color=colors[i])
+
+# Add labels and title
+plt.xlabel("Tau")
+plt.ylabel("Parameter Values")
+plt.legend()
+plt.show()
