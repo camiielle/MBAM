@@ -1,14 +1,13 @@
 # evaluates limits of my model
-import sympy as sp 
+import sympy as sp
 
 F = sp.symbols('F')
 t = sp.symbols('t', positive=True)
 s = sp.symbols('s', positive=True)
 γ0 = sp.symbols('γ0', positive=True)
-#γ = sp.symbols('γ', positive=True)
+γ = sp.symbols('γ', positive=True)
+λ = sp.symbols('λ')
 
-γ = s
-λ = -s
 # General parameters
 b = λ + γ + γ0
 b_star = λ + γ - γ0
@@ -35,11 +34,13 @@ sigma_o = 0.1
 Ta = F/λ*(a_f*(1-sp.exp(-t/τ_f)) + a_s*(1-sp.exp(-t/τ_s)))
 To = F/λ*(a_f*φ_f*(1-sp.exp(-t/τ_f)) + φ_s*a_s*(1-sp.exp(-t/τ_s)))
 
-# limit_lambda = sp.limit(Ta, λ, -sp.oo)  # First take limit with respect to x
-simultaneous_limit = sp.limit(Ta.subs({γ: s, λ: -s}), s, sp.oo)  # First take limit with respect to x
+# limit_lambda = sp.limit(Ta, λ, -sp.oo)
+# simultaneous_limit = sp.limit(Ta.subs({γ: s, λ: -s}), s, sp.oo)  # First take limit with respect to x
+limit_F = sp.limit(Ta, F, sp.oo)  # First take limit with respect to x
+print(limit_F)  # oo*sign(((1 - exp(-2*t*γ0*λ/(γ + γ0 + λ - sqrt(-4*γ0*λ + (γ + γ0 + λ)**2))))*(γ - γ0 + λ + sqrt(-4*γ0*λ + (γ + γ0 + λ)**2))*(γ + γ0 + λ - sqrt(-4*γ0*λ + (γ + γ0 + λ)**2)) - (1 - exp(-2*t*γ0*λ/(γ + γ0 + λ + sqrt(-4*γ0*λ + (γ + γ0 + λ)**2))))*(γ - γ0 + λ - sqrt(-4*γ0*λ + (γ + γ0 + λ)**2))*(γ + γ0 + λ + sqrt(-4*γ0*λ + (γ + γ0 + λ)**2)))/(λ*sqrt(-4*γ0*λ + (γ + γ0 + λ)**2)))
 
-print(simultaneous_limit) #oo*sign(F)
+# print(simultaneous_limit) #oo*sign(F)
 
 # limit lambda oo*sign(F)
 # limit gamma 0
-# double limit 
+# double limit
