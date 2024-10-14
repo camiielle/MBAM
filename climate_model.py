@@ -74,7 +74,7 @@ def Avv(x, v):
 
 
 # Choose starting parameters
-x = [1.3/8, 0.0875, 0.007, 0.4875]
+x = [1.3/8, 0.0875, 0.007, 0.4875] # λ, γ, γ0, F = x[0], x[1], x[2], x[3]
 v = initial_velocity(x, j, Avv)
 data_points = r(x)
 
