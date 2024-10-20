@@ -45,7 +45,7 @@ The output of :math:`Avv(x,v)` should be a vector of length M. In this example,
 M = 6  # number of predictions
 N = 4  # number of parameters
 
-t = np.array([5., 10., 30.])  # yr
+t = np.array([1., 10., 100.])  # yr
 # t = np.array([1.,5.,10.])
 
 
@@ -76,7 +76,7 @@ def r(x):
         τ_f=1e-8
     if τ_s==0:
         τ_s=1e-8
-        
+
     # defining ODEs solutions
     Ta = F/λ*(a_f*(1-np.exp(-1/τ_f*t)) + a_s*(1-np.exp(-1/τ_s*t)))
     To = F/λ*(a_f*φ_f*(1-np.exp(-1/τ_f*t)) + φ_s*a_s*(1-np.exp(-1/τ_s*t)))
@@ -110,7 +110,7 @@ def callback(g):
         "Iteration: %i, tau: %f, |v| = %f, eigenvalue: %.20f"
         % (len(g.vs), g.ts[-1], np.linalg.norm(g.vs[-1]), s[-1])
     )
-    return np.linalg.norm(g.vs[-1]) < 830011983
+    return np.linalg.norm(g.vs[-1]) < 240
     # return np.linalg.norm(g.vs[-1]) < 1200
 
 
@@ -123,7 +123,7 @@ geo.integrate(480, maxsteps=3000)
 
 # Plot the geodesic path to find the limit
 colors = ['r', 'g', 'b', 'orange']
-labels = ['λ', 'γ', 'γ0', 'F']
+labels = ['logλ', 'logγ', 'logγ0', 'F']
 
 
 def plot_geodesic_path(geo, colors, labels, N):
