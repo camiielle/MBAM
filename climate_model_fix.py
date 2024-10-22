@@ -144,12 +144,8 @@ def r_new(y):
 
 def objective(y):
     predicted = r_new(y)
-    error = np.sum((predicted - noisy_data_point) ** 2)
-    return error
-
-y0 = [-1.23981994, -4.76168556,  0.25466911]
-
-result = minimize(objective, y0, method='L-BFGS-B')
+    msl = np.mean((predicted - noisy_data_point) ** 2)
+    return msl
 
 def j_new(y):
     jacob = jacobian_func(r_new, M, N_new)
@@ -160,8 +156,29 @@ def Avv_new(y, v_new):
     return avv_function(y, v_new)
 
 # Choose starting parameters
-y = result.x #new parameters obtained by fitting to original model predictions
+y0 = [-1.23981994, -4.76168556,  0.25466911]
+result = minimize(objective, y0, method='L-BFGS-B')
+y = result.x # new parameters obtained by fitting to original model predictions
 v_new = initial_velocity(y, j_new, Avv_new)
+
+def callback_new(g):
+    _, s, _ = np.linalg.svd(j_new(g.xs[-1]))
+    print(
+        "Iteration: %i, tau: %f, |v| = %f, eigenvalue: %.25f"
+        % (len(g.vs), g.ts[-1], np.linalg.norm(g.vs[-1]), s[-1])
+    )
+    return np.linalg.norm(g.vs[-1]) < 349
+
+
+# Construct the geodesic
+geo_new = Geodesic(r_new, j_new, Avv_new, y, v_new, atol=1e-2, rtol=1e-2,
+                   parameterspacenorm=False, callback=callback_new)
+
+# Integrate
+geo_new.integrate(480)
+plot_geodesic_path(geo_new, [colors[0]] + colors[2:],
+                   [labels[0]]+labels[2:], N_new)
+
 
 """
 # 
@@ -183,23 +200,6 @@ v_new = initial_velocity(y, j_new, Avv_new)
 # Callback
 
 
-def callback_new(g):
-    _, s, _ = np.linalg.svd(j_new(g.xs[-1]))
-    print(
-        "Iteration: %i, tau: %f, |v| = %f, eigenvalue: %.25f"
-        % (len(g.vs), g.ts[-1], np.linalg.norm(g.vs[-1]), s[-1])
-    )
-    return True  # np.linalg.norm(g.vs[-1]) < 27.0
-
-
-# Construct the geodesic
-geo_new = Geodesic(r_new, j_new, Avv_new, y, v_new, atol=1e-2, rtol=1e-2,
-                   parameterspacenorm=False, callback=callback_new)
-
-# Integrate
-geo_new.integrate(480)
-plot_geodesic_path(geo_new, [colors[0]] + colors[2:],
-                   [labels[0]]+labels[2:], N_new)
 
 """
 """
