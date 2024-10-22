@@ -116,7 +116,7 @@ geo = Geodesic(r, j, Avv, x, v, atol=1e-2, rtol=1e-2,
 geo.integrate(480, maxsteps=3000)
 
 # Plot the geodesic path to find the limit
-colors = ['r', 'g', 'b', 'orange']
+colors = ["#0072B2", "#E69F00", "#009E73", "#CC79A7"] #colorblind friendly
 labels = ['logλ', 'logγ', 'logγo', 'logF']
 
 
@@ -125,6 +125,7 @@ def plot_geodesic_path(geo, colors, labels, N):
         plt.plot(geo.ts, geo.xs[:, i], label=labels[i], color=colors[i])
     plt.xlabel("Tau")
     plt.ylabel("Parameter Values")
+    plt.grid(True, which='both', linestyle='--', linewidth=0.5, alpha=0.7)
     plt.legend()
     plt.show()
 
