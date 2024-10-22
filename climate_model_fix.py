@@ -38,27 +38,28 @@ N = 4  # number of parameters
 
 t = np.array([0.01, 0.1, 1., 10., 100.])  # yr
 # t = np.array([1.,5.,10.])
-
-def model(λ, γ, γ0, F):
+    
+def r(x):
+    λ, γ, γo, F = np.exp(x)
     if λ == 0:
         λ = 1e-8
     # General parameters
-    b = λ + γ + γ0
-    b_star = λ + γ - γ0
-    delta = b*b - 4 * λ * γ0
+    b = λ + γ + γo
+    b_star = λ + γ - γo
+    delta = b*b - 4 * λ * γo
 
     # Mode parameters (Fast and Slow)
-    τ_f = (b - np.sqrt(delta)) / (2 * γ0 * λ)
-    τ_s = (b + np.sqrt(delta)) / (2 * γ0 * λ)
+    τ_f = (b - np.sqrt(delta)) / (2 * γo * λ)
+    τ_s = (b + np.sqrt(delta)) / (2 * γo * λ)
 
     φ_s = 1 / (2 * γ) * (b_star + np.sqrt(delta))
     φ_f = 1 / (2 * γ) * (b_star - np.sqrt(delta))
 
     a_f = φ_s * τ_f * λ / (φ_s - φ_f)
-    l_f = a_f * τ_f * λ / (1 + γ/γ0)
+    l_f = a_f * τ_f * λ / (1 + γ/γo)
 
     a_s = -φ_f * τ_s * λ / (φ_s - φ_f)
-    l_s = a_s * τ_s * λ / (1 + γ/γ0)
+    l_s = a_s * τ_s * λ / (1 + γ/γo)
 
     if τ_f == 0:
         τ_f = 1e-8
@@ -70,10 +71,6 @@ def model(λ, γ, γ0, F):
     To = F/λ*(a_f*φ_f*(1-np.exp(-1/τ_f*t)) + φ_s*a_s*(1-np.exp(-1/τ_s*t)))
 
     return np.hstack((Ta, To))
-
-def r(x):
-    λ, γ, γ0, F = np.exp(x)
-    return model(λ, γ, γ0, F)
 
 # Jacobian (computed numerically)
 
@@ -90,7 +87,7 @@ def Avv(x, v):
 
 
 # Choose starting parameters
-X = [1.13/7.3, 0.74/7.3, 0.74/91, 6.9/7.3] #λ, γ, γ0, F
+X = [1.13/7.3, 0.74/7.3, 0.74/91, 6.9/7.3] #λ, γ, γo, F
 x = np.log(X)
 v = initial_velocity(x, j, Avv)
 noisy_data_point = r(x) + \
@@ -120,7 +117,7 @@ geo.integrate(480, maxsteps=3000)
 
 # Plot the geodesic path to find the limit
 colors = ['r', 'g', 'b', 'orange']
-labels = ['logλ', 'logγ', 'logγ0', 'logF']
+labels = ['logλ', 'logγ', 'logγo', 'logF']
 
 
 def plot_geodesic_path(geo, colors, labels, N):
@@ -132,14 +129,25 @@ def plot_geodesic_path(geo, colors, labels, N):
     plt.show()
 
 plot_geodesic_path(geo, colors, labels, N)
+
 """
-# first run of MBAM shows we hit boundary gamma=0
+first run of MBAM shows we hit boundary gamma->0
+I calculate the analytical limit of the model using Mathematica
+"""
+def r_new(y):
+    λ, γo, F = np.exp(y)
+    Ta=F/λ*(1-np.exp(-t*λ))
+    To=F/λ(γo*(1-np.exp(-t*λ))-λ*(1-np.exp(-t*γo)))/(γo-λ)
+    return np.hstack((Ta, To))
+
+"""
+# 
 N_new = N-1
 
 def r_new(y):
-    λ, γ0, F = np.exp(y)
+    λ, γo, F = np.exp(y)
     γ = 1e-11
-    return model(λ, γ, γ0, F)
+    return model(λ, γ, γo, F)
 
 # chose this value performing a fit starting from x
 # y0 = [-0.91358019, -4.11698289,  3.27923553]
@@ -201,7 +209,7 @@ initial_params = [1.3/8, 0.7/8, 0.007]
 opt_params = fit.recalibrate_parameters(
     t, data_points[:3], data_points[3:], initial_params, F_fixed=1e4)
 print(
-    f"Recalibrated Parameters: λ = {opt_params[0]}, γ = {opt_params[1]}, γ0 = {opt_params[2]}")
+    f"Recalibrated Parameters: λ = {opt_params[0]}, γ = {opt_params[1]}, γo = {opt_params[2]}")
 
 # define new model
 F_oo = True
@@ -210,25 +218,25 @@ if F_oo:
     N_new = 3
 
     def r_new(y):
-        λ, γ, γ0 = y[0], y[1], y[2]
+        λ, γ, γo = y[0], y[1], y[2]
         F = 3000
 
         # General parameters
-        b = λ + γ + γ0
-        b_star = λ + γ - γ0
-        delta = b*b - 4 * λ * γ0
+        b = λ + γ + γo
+        b_star = λ + γ - γo
+        delta = b*b - 4 * λ * γo
 
         # Mode parameters (Fast and Slow)
-        τ_f = (b - np.sqrt(delta)) / (2 * γ0 * λ)
-        τ_s = (b + np.sqrt(delta)) / (2 * γ0 * λ)
+        τ_f = (b - np.sqrt(delta)) / (2 * γo * λ)
+        τ_s = (b + np.sqrt(delta)) / (2 * γo * λ)
 
         φ_s = 1 / (2 * γ) * (b_star + np.sqrt(delta))
         φ_f = 1 / (2 * γ) * (b_star - np.sqrt(delta))
 
         a_f = φ_s * τ_f * λ / (φ_s - φ_f)
-        l_f = a_f * τ_f * λ / (1 + γ/γ0)
+        l_f = a_f * τ_f * λ / (1 + γ/γo)
         a_s = -φ_f * τ_s * λ / (φ_s - φ_f)
-        l_s = a_s * τ_s * λ / (1 + γ/γ0)
+        l_s = a_s * τ_s * λ / (1 + γ/γo)
 
         # defining ODEs solutions
         Ta = F/λ*(a_f*(1-np.exp(-1/τ_f*t)) + a_s*(1-np.exp(-1/τ_s*t)))
@@ -272,25 +280,25 @@ elif not F_oo:
     def r_new(y):
         λ = -1e4
         γ = 1e4
-        γ0, F = y[0], y[1]
+        γo, F = y[0], y[1]
 
         # General parameters
-        b = λ + γ + γ0
-        b_star = λ + γ - γ0
-        delta = b*b - 4 * λ * γ0
+        b = λ + γ + γo
+        b_star = λ + γ - γo
+        delta = b*b - 4 * λ * γo
 
         # Mode parameters (Fast and Slow)
-        τ_f = (b - np.sqrt(delta)) / (2 * γ0 * λ)
-        τ_s = (b + np.sqrt(delta)) / (2 * γ0 * λ)
+        τ_f = (b - np.sqrt(delta)) / (2 * γo * λ)
+        τ_s = (b + np.sqrt(delta)) / (2 * γo * λ)
 
         φ_s = 1 / (2 * γ) * (b_star + np.sqrt(delta))
         φ_f = 1 / (2 * γ) * (b_star - np.sqrt(delta))
 
         a_f = φ_s * τ_f * λ / (φ_s - φ_f)
-        l_f = a_f * τ_f * λ / (1 + γ/γ0)
+        l_f = a_f * τ_f * λ / (1 + γ/γo)
 
         a_s = -φ_f * τ_s * λ / (φ_s - φ_f)
-        l_s = a_s * τ_s * λ / (1 + γ/γ0)
+        l_s = a_s * τ_s * λ / (1 + γ/γo)
 
         # defining ODEs solutions
         Ta = F/λ*(a_f*(1-np.exp(-1/τ_f*t)) + a_s*(1-np.exp(-1/τ_s*t)))
@@ -333,29 +341,29 @@ elif not F_oo:
 N_new_new = 1
 
 
-def r_new_new(γ0_list):
+def r_new_new(γo_list):
     λ = -3e4
     γ = 3e4
     F = 1e4
-    γ0 = γ0_list[0]
+    γo = γo_list[0]
 
     # General parameters
-    b = λ + γ + γ0
-    b_star = λ + γ - γ0
-    delta = b*b - 4 * λ * γ0
+    b = λ + γ + γo
+    b_star = λ + γ - γo
+    delta = b*b - 4 * λ * γo
 
     # Mode parameters (Fast and Slow)
-    τ_f = (b - np.sqrt(delta)) / (2 * γ0 * λ)
-    τ_s = (b + np.sqrt(delta)) / (2 * γ0 * λ)
+    τ_f = (b - np.sqrt(delta)) / (2 * γo * λ)
+    τ_s = (b + np.sqrt(delta)) / (2 * γo * λ)
 
     φ_s = 1 / (2 * γ) * (b_star + np.sqrt(delta))
     φ_f = 1 / (2 * γ) * (b_star - np.sqrt(delta))
 
     a_f = φ_s * τ_f * λ / (φ_s - φ_f)
-    l_f = a_f * τ_f * λ / (1 + γ/γ0)
+    l_f = a_f * τ_f * λ / (1 + γ/γo)
 
     a_s = -φ_f * τ_s * λ / (φ_s - φ_f)
-    l_s = a_s * τ_s * λ / (1 + γ/γ0)
+    l_s = a_s * τ_s * λ / (1 + γ/γo)
 
     # defining ODEs solutions
     Ta = F/λ*(a_f*(1-np.exp(-1/τ_f*t)) + a_s*(1-np.exp(-1/τ_s*t)))
@@ -364,16 +372,16 @@ def r_new_new(γ0_list):
     return np.hstack((Ta, To))
 
 
-def j_new_new(γ0):
+def j_new_new(γo):
     jacob = jacobian_func(r_new_new, M, N_new_new)
-    return jacob(γ0)
+    return jacob(γo)
 
 # Directional second derivative
 
 
-def Avv_new_new(γ0, v_new_new):
+def Avv_new_new(γo, v_new_new):
     avv_function = Avv_func(r_new_new)
-    return avv_function(γ0, v_new_new)
+    return avv_function(γo, v_new_new)
 
 
 # Choose starting parameters
