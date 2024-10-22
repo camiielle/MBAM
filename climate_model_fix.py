@@ -189,14 +189,14 @@ plot_geodesic_path(geo_new, [colors[0]] + colors[2:],
                    [labels[0]]+labels[2:], N_new)
 
 """
-first run of MBAM shows we hit boundary F, lambda go to infinity while their ratio remains finite
+second run of MBAM shows we hit boundary F, lambda go to infinity while their ratio remains finite
 I calculate the analytical limit of the model using Mathematica
 """
 N_new_new = N-2
 
 def r_new_new(z):
     γo, c = np.exp(z)
-    Ta = np.array([c,c,c,c,c])
+    Ta = np.full(M//2, c)
     To = c*(1-np.exp(t*γo))
     return np.hstack((Ta, To))
 
@@ -239,3 +239,20 @@ geo_new_new = Geodesic(r_new_new, j_new_new, Avv_new_new, z, v_new_new, atol=1e-
 geo_new_new.integrate(480)
 plot_geodesic_path(geo_new_new, colors[2:],
                    [labels[2]]+['c'], N_new_new)
+"""
+third and last run of MBAM shows we hit boundary gamma_o -> 0
+I calculate the analytical limit of the model using Mathematica
+"""
+def r_new_new_new(c):
+    Ta=np.full(M//2, c)
+    To=np.full(M//2, 0.)
+    return np.hstack((Ta, To))
+
+
+def objective_new_new_new(c):
+    predicted = r_new_new_new(c)
+    msl = np.mean((predicted - noisy_data_point) ** 2)
+    return msl
+
+final_c=minimize(objective_new_new_new, 4., method='L-BFGS-B')
+print(final_c)
