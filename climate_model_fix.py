@@ -134,53 +134,51 @@ plot_geodesic_path(geo, colors, labels, N)
 first run of MBAM shows we hit boundary gamma->0
 I calculate the analytical limit of the model using Mathematica
 """
-def r_new(y):
-    λ, γo, F = np.exp(y)
-    Ta=F/λ*(1-np.exp(-t*λ))
-    To=F/λ(γo*(1-np.exp(-t*λ))-λ*(1-np.exp(-t*γo)))/(γo-λ)
-    return np.hstack((Ta, To))
-
-"""
-# 
 N_new = N-1
 
 def r_new(y):
     λ, γo, F = np.exp(y)
-    γ = 1e-11
-    return model(λ, γ, γo, F)
+    Ta=F/λ*(1-np.exp(-t*λ))
+    To=F/λ*(γo*(1-np.exp(-t*λ))-λ*(1-np.exp(-t*γo)))/(γo-λ)
+    return np.hstack((Ta, To))
 
-# chose this value performing a fit starting from x
-# y0 = [-0.91358019, -4.11698289,  3.27923553]
-y0 = [-1.93785168, -5.49214429,  np.log(4.19413007)]
-
-
-def objective_fixed(y):
+def objective(y):
     predicted = r_new(y)
     error = np.sum((predicted - noisy_data_point) ** 2)
     return error
 
+y0 = [-1.23981994, -4.76168556,  0.25466911]
 
-result = minimize(objective_fixed, y0, method='L-BFGS-B')
-
-# note: if i leave all 4 parameters free i get a minimum at mse=2.465
-# and if i fix gamma i get mse=3 so the fit is only slightly worse
-
+result = minimize(objective, y0, method='L-BFGS-B')
 
 def j_new(y):
     jacob = jacobian_func(r_new, M, N_new)
     return jacob(y)
 
-# Directional second derivative
-
-
 def Avv_new(y, v_new):
     avv_function = Avv_func(r_new)
     return avv_function(y, v_new)
 
-
 # Choose starting parameters
-y = result.x
+y = result.x #new parameters obtained by fitting to original model predictions
 v_new = initial_velocity(y, j_new, Avv_new)
+
+"""
+# 
+
+
+# chose this value performing a fit starting from x
+# y0 = [-0.91358019, -4.11698289,  3.27923553]
+
+
+# note: if i leave all 4 parameters free i get a minimum at mse=2.465
+# and if i fix gamma i get mse=3 so the fit is only slightly worse
+
+
+
+# Directional second derivative
+
+
 
 # Callback
 
