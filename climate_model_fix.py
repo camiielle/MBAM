@@ -38,7 +38,8 @@ N = 4  # number of parameters
 
 t = np.array([0.01, 0.1, 1., 10., 100.])  # yr
 # t = np.array([1.,5.,10.])
-    
+
+
 def r(x):
     λ, γ, γo, F = np.exp(x)
     if λ == 0:
@@ -81,13 +82,14 @@ def j(x):
 
 # Directional second derivative
 
+
 def Avv(x, v):
     avv_function = Avv_func(r)
     return avv_function(x, v)
 
 
 # Choose starting parameters
-X = [1.13/7.3, 0.74/7.3, 0.74/91, 6.9/7.3] #λ, γ, γo, F
+X = [1.13/7.3, 0.74/7.3, 0.74/91, 6.9/7.3]  # λ, γ, γo, F
 x = np.log(X)
 v = initial_velocity(x, j, Avv)
 noisy_data_point = r(x) + \
@@ -128,6 +130,7 @@ def plot_geodesic_path(geo, colors, labels, N):
     plt.legend()
     plt.show()
 
+
 plot_geodesic_path(geo, colors, labels, N)
 
 """
@@ -136,30 +139,36 @@ I calculate the analytical limit of the model using Mathematica
 """
 N_new = N-1
 
+
 def r_new(y):
     λ, γo, F = np.exp(y)
-    Ta=F/λ*(1-np.exp(-t*λ))
-    To=F/λ*(γo*(1-np.exp(-t*λ))-λ*(1-np.exp(-t*γo)))/(γo-λ)
+    Ta = F/λ*(1-np.exp(-t*λ))
+    To = F/λ*(γo*(1-np.exp(-t*λ))-λ*(1-np.exp(-t*γo)))/(γo-λ)
     return np.hstack((Ta, To))
+
 
 def objective(y):
     predicted = r_new(y)
     msl = np.mean((predicted - noisy_data_point) ** 2)
     return msl
 
+
 def j_new(y):
     jacob = jacobian_func(r_new, M, N_new)
     return jacob(y)
+
 
 def Avv_new(y, v_new):
     avv_function = Avv_func(r_new)
     return avv_function(y, v_new)
 
+
 # Choose starting parameters
 y0 = [-1.23981994, -4.76168556,  0.25466911]
-result = minimize(objective, y0, method='L-BFGS-B')
-y = result.x # new parameters obtained by fitting to original model predictions
+y_result = minimize(objective, y0, method='L-BFGS-B')
+y = y_result.x  # new parameters obtained by fitting to original model predictions
 v_new = initial_velocity(y, j_new, Avv_new)
+
 
 def callback_new(g):
     _, s, _ = np.linalg.svd(j_new(g.xs[-1]))
@@ -179,237 +188,54 @@ geo_new.integrate(480)
 plot_geodesic_path(geo_new, [colors[0]] + colors[2:],
                    [labels[0]]+labels[2:], N_new)
 
-
 """
-# 
-
-
-# chose this value performing a fit starting from x
-# y0 = [-0.91358019, -4.11698289,  3.27923553]
-
-
-# note: if i leave all 4 parameters free i get a minimum at mse=2.465
-# and if i fix gamma i get mse=3 so the fit is only slightly worse
-
-
-
-# Directional second derivative
-
-
-
-# Callback
-
-
-
+first run of MBAM shows we hit boundary F, lambda go to infinity while their ratio remains finite
+I calculate the analytical limit of the model using Mathematica
 """
-"""
-initial_params = [1.3/8, 0.7/8, 0.007]
-opt_params = fit.recalibrate_parameters(
-    t, data_points[:3], data_points[3:], initial_params, F_fixed=1e4)
-print(
-    f"Recalibrated Parameters: λ = {opt_params[0]}, γ = {opt_params[1]}, γo = {opt_params[2]}")
+N_new_new = N-2
 
-# define new model
-F_oo = True
-
-if F_oo:
-    N_new = 3
-
-    def r_new(y):
-        λ, γ, γo = y[0], y[1], y[2]
-        F = 3000
-
-        # General parameters
-        b = λ + γ + γo
-        b_star = λ + γ - γo
-        delta = b*b - 4 * λ * γo
-
-        # Mode parameters (Fast and Slow)
-        τ_f = (b - np.sqrt(delta)) / (2 * γo * λ)
-        τ_s = (b + np.sqrt(delta)) / (2 * γo * λ)
-
-        φ_s = 1 / (2 * γ) * (b_star + np.sqrt(delta))
-        φ_f = 1 / (2 * γ) * (b_star - np.sqrt(delta))
-
-        a_f = φ_s * τ_f * λ / (φ_s - φ_f)
-        l_f = a_f * τ_f * λ / (1 + γ/γo)
-        a_s = -φ_f * τ_s * λ / (φ_s - φ_f)
-        l_s = a_s * τ_s * λ / (1 + γ/γo)
-
-        # defining ODEs solutions
-        Ta = F/λ*(a_f*(1-np.exp(-1/τ_f*t)) + a_s*(1-np.exp(-1/τ_s*t)))
-        To = F/λ*(a_f*φ_f*(1-np.exp(-1/τ_f*t)) + φ_s*a_s*(1-np.exp(-1/τ_s*t)))
-        return np.hstack((Ta, To))
-
-    def j_new(y):
-        jacob = jacobian_func(r_new, M, N_new)
-        return jacob(y)
-
-    # Directional second derivative
-    def Avv_new(y, v_new):
-        avv_function = Avv_func(r_new)
-        return avv_function(y, v_new)
-
-    # Choose starting parameters
-    y = opt_params
-    v_new = initial_velocity(y, j_new, Avv_new)
-
-    # Callback
-    def callback_new(g):
-        _, s, _ = np.linalg.svd(j_new(g.xs[-1]))
-        print(
-            "Iteration: %i, tau: %f, |v| = %f, eigenvalue: %.25f"
-            % (len(g.vs), g.ts[-1], np.linalg.norm(g.vs[-1]), s[-1])
-        )
-
-        return True  # np.linalg.norm(g.vs[-1]) < 27.0
-
-    # Construct the geodesic
-    geo_new = Geodesic(r_new, j_new, Avv_new, y, v_new, atol=1e-2, rtol=1e-2,
-                       parameterspacenorm=False, callback=callback_new)
-
-    # Integrate
-    geo_new.integrate(21748, 1e4)
-    plot_geodesic_path(geo_new, colors[:3], labels[:3], N_new)
-
-elif not F_oo:
-    N_new = 2
-
-    def r_new(y):
-        λ = -1e4
-        γ = 1e4
-        γo, F = y[0], y[1]
-
-        # General parameters
-        b = λ + γ + γo
-        b_star = λ + γ - γo
-        delta = b*b - 4 * λ * γo
-
-        # Mode parameters (Fast and Slow)
-        τ_f = (b - np.sqrt(delta)) / (2 * γo * λ)
-        τ_s = (b + np.sqrt(delta)) / (2 * γo * λ)
-
-        φ_s = 1 / (2 * γ) * (b_star + np.sqrt(delta))
-        φ_f = 1 / (2 * γ) * (b_star - np.sqrt(delta))
-
-        a_f = φ_s * τ_f * λ / (φ_s - φ_f)
-        l_f = a_f * τ_f * λ / (1 + γ/γo)
-
-        a_s = -φ_f * τ_s * λ / (φ_s - φ_f)
-        l_s = a_s * τ_s * λ / (1 + γ/γo)
-
-        # defining ODEs solutions
-        Ta = F/λ*(a_f*(1-np.exp(-1/τ_f*t)) + a_s*(1-np.exp(-1/τ_s*t)))
-        To = F/λ*(a_f*φ_f*(1-np.exp(-1/τ_f*t)) + φ_s*a_s*(1-np.exp(-1/τ_s*t)))
-
-        return np.hstack((Ta, To))
-
-    def j_new(y):
-        jacob = jacobian_func(r_new, M, N_new)
-        return jacob(y)
-
-    # Directional second derivative
-    def Avv_new(y, v_new):
-        avv_function = Avv_func(r_new)
-        return avv_function(y, v_new)
-
-    # Choose starting parameters
-    y = [0.7/100, 3.9/8]
-    v_new = initial_velocity(y, j_new, Avv_new)
-
-    # Callback
-    def callback_new(g):
-        # Integrate until the norm of the velocity has grown by a factor of 10
-        # # and print out some diagnotistic along the way
-        _, s, _ = np.linalg.svd(j_new(g.xs[-1]))
-        print(
-            "Iteration: %i, tau: %f, |v| = %f, eigenvalue: %.25f"
-            % (len(g.vs), g.ts[-1], np.linalg.norm(g.vs[-1]), s[-1])
-        )
-        return True  # np.linalg.norm(g.vs[-1]) < 80.0
-
-    # Construct the geodesic
-    geo_new = Geodesic(r_new, j_new, Avv_new, y, v_new, atol=1e-2, rtol=1e-2,
-                       parameterspacenorm=False, callback=callback_new)
-    # Integrate
-    geo_new.integrate(480)
-    plot_geodesic_path(geo_new, colors[2:], labels[2:], N_new)
-
-# define new model (M=6,N=1)
-N_new_new = 1
-
-
-def r_new_new(γo_list):
-    λ = -3e4
-    γ = 3e4
-    F = 1e4
-    γo = γo_list[0]
-
-    # General parameters
-    b = λ + γ + γo
-    b_star = λ + γ - γo
-    delta = b*b - 4 * λ * γo
-
-    # Mode parameters (Fast and Slow)
-    τ_f = (b - np.sqrt(delta)) / (2 * γo * λ)
-    τ_s = (b + np.sqrt(delta)) / (2 * γo * λ)
-
-    φ_s = 1 / (2 * γ) * (b_star + np.sqrt(delta))
-    φ_f = 1 / (2 * γ) * (b_star - np.sqrt(delta))
-
-    a_f = φ_s * τ_f * λ / (φ_s - φ_f)
-    l_f = a_f * τ_f * λ / (1 + γ/γo)
-
-    a_s = -φ_f * τ_s * λ / (φ_s - φ_f)
-    l_s = a_s * τ_s * λ / (1 + γ/γo)
-
-    # defining ODEs solutions
-    Ta = F/λ*(a_f*(1-np.exp(-1/τ_f*t)) + a_s*(1-np.exp(-1/τ_s*t)))
-    To = F/λ*(a_f*φ_f*(1-np.exp(-1/τ_f*t)) + φ_s*a_s*(1-np.exp(-1/τ_s*t)))
-
+def r_new_new(z):
+    γo, c = np.exp(z)
+    Ta = np.array([c,c,c,c,c])
+    To = c*(1-np.exp(t*γo))
     return np.hstack((Ta, To))
 
+def objective_new_new(z):
+    predicted = r_new_new(z)
+    msl = np.mean((predicted - noisy_data_point) ** 2)
+    return msl
 
-def j_new_new(γo):
+def j_new_new(z):
     jacob = jacobian_func(r_new_new, M, N_new_new)
-    return jacob(γo)
-
-# Directional second derivative
+    return jacob(z)
 
 
-def Avv_new_new(γo, v_new_new):
+def Avv_new_new(z, v_new_new):
     avv_function = Avv_func(r_new_new)
-    return avv_function(γo, v_new_new)
+    return avv_function(z, v_new_new)
 
 
 # Choose starting parameters
-lambda_fixed = -3e4
-gamma_fixed = 3e4
-initial_gamma0 = 0.007
-opt_gamma0 = fit.recalibrate_gamma0(
-    t, data_points[:3], data_points[3:], lambda_fixed, gamma_fixed, initial_gamma0, F_fixed=1e4)
-v_new_new = initial_velocity([opt_gamma0], j_new_new, Avv_new_new)
-
-# Callback
+z0 = [-4.76168556,  4.4]
+z_result= minimize(objective_new_new, z0, method='L-BFGS-B')
+z = z_result.x  # new parameters obtained by fitting to original model predictions
+v_new_new = initial_velocity(z, j_new_new, Avv_new_new)
 
 
 def callback_new_new(g):
-    # Integrate until the norm of the velocity has grown by a factor of 10
-    # and print out some diagnotistic along the way
     _, s, _ = np.linalg.svd(j_new_new(g.xs[-1]))
     print(
         "Iteration: %i, tau: %f, |v| = %f, eigenvalue: %.25f"
         % (len(g.vs), g.ts[-1], np.linalg.norm(g.vs[-1]), s[-1])
     )
-    return True
+    return np.linalg.norm(g.vs[-1]) < 214
 
 
 # Construct the geodesic
-geo_new_new = Geodesic(r_new_new, j_new_new, Avv_new_new, [opt_gamma0], v_new_new, atol=1e-2, rtol=1e-2,
-                       parameterspacenorm=False, callback=callback_new_new)
+geo_new_new = Geodesic(r_new_new, j_new_new, Avv_new_new, z, v_new_new, atol=1e-2, rtol=1e-2,
+                   parameterspacenorm=False, callback=callback_new_new)
 
 # Integrate
 geo_new_new.integrate(480)
-
-plot_geodesic_path(geo_new, colors[2], labels[2], N_new_new)
-"""
+plot_geodesic_path(geo_new_new, colors[2:],
+                   [labels[2]]+['c'], N_new_new)
