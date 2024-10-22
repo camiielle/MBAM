@@ -46,8 +46,9 @@ def diff(x, t):
 
 
 # Define the parameter ranges for λ, γ, γ0, F and the time points
-times = [0, 10, 100, 500]  # years
-parameter_ranges = [np.linspace(0.0001, 10, 40), np.linspace(0.1, 100, 40), np.linspace(
+# times = [0, 10, 100, 500]  # years
+times = [0, 10, 200, 1000]  # years
+parameter_ranges = [np.linspace(0.0001, 10, 40), np.linspace(0.1, 20, 40), np.linspace(
     0.01, 1, 40), np.linspace(-10, 100, 40)]  # λ, γ, γ0, F
 x0 = [1.3/8, 0.0875, 0.007, 0.4875]  # λ, γ, γ0, F initial values
 
