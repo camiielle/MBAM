@@ -7,53 +7,43 @@ from mbam.utils import initial_velocity
 from collections import namedtuple
 from scipy.optimize import curve_fit
 
-# Six parameters initial values
-# Using typical values calibrated for the CMIP5 models mentioned in the article​
-# https://journals.ametsoc.org/view/journals/clim/26/6/jcli-d-12-00196.1.xml
+"""
+Multimodel means of values calibrated for the CMIP5 models mentioned in the article​
+https://journals.ametsoc.org/view/journals/clim/26/6/jcli-d-12-00196.1.xml
 
-# C = 8 W⋅yr/m²/K     # Upper layer heat capacity
-# C0 = 100 W⋅yr/m²/K  # Lower layer heat capacity
-# lambda_ = 1.3/8 y-1
-# gamma = 0.7/8 yr^-1
-# gamma0 = 0.7/100 yr^-1
-# epsilon = 1        # Efficacy factor
-# F = 3.9/8 K/yr     # External forcing for a 4x CO2 increase divided by C
+C = 7.3 W⋅yr/m²/K     # Upper layer heat capacity
+C0 = 91 W⋅yr/m²/K     # Lower layer heat capacity
+lambda_ = 1.13/7.3 y-1
+gamma = 0.74/7.3 yr^-1
+gamma0 = 0.74/91 yr^-1
+F = 6.9/7.3 K/yr     # External forcing for a 4x CO2 increase divided by C
 
-# I make some assumptions to simplify the model:
-# 1) efficacy = 1 fixed (so one less parameter)
-# 2) Forcing is a STEP FORCING
-# 3) Tx(0)=0 as initial conditions for x=a,o
-# under these assumptions an analytical solution exists and takes a simple form
+We make some assumptions to simplify the model:
+1) efficacy = 1 fixed (so one less parameter)
+2) Forcing is a STEP FORCING
+3) Tx(0)=0 as initial conditions for x=a,o
+under these assumptions an analytical solution exists and takes a simple form
 
-""" Model takes the form
-
-.. math::
-
-    y(t,x) = e^{-x_0 t} + e^{-x_1 t},
-
-for time points :math:`t = \{0.5, 1.0, 2.0\}`.
-
-We enforce :math:`x_i > 0` by going to log parameters:
+We enforce x_i > 0 by going to log parameters
 
 We adopt the convention that the model has N parameters and makes M
-predictions. Then, the output of :math:`r(x)` should be a vector length M the
-output of :math:`j(x)` (i.e., jacobian) should be an :math:`M \times N` matrix.
-The output of :math:`Avv(x,v)` should be a vector of length M. In this example,
-:math:`M = 3` (three time points) and :math:`N = 2`.
+predictions. Then, the output of r(x) should be a vector length M the
+output of j(x) (i.e., jacobian) should be an M times N matrix.
+The output of Avv(x,v) should be a vector of length M.
 """
 
-M = 6  # number of predictions
+M = 10  # number of predictions
 N = 4  # number of parameters
 
-t = np.array([1., 10., 100.])  # yr
+t = np.array([0.01, 0.1, 1., 10., 100.])  # yr
 # t = np.array([1.,5.,10.])
 
 
 def r(x):
     λ, γ, γ0, F = np.exp(x[0]), np.exp(x[1]), np.exp(x[2]), x[3]
 
-    if λ==0:
-        λ=1e-8
+    if λ == 0:
+        λ = 1e-8
     # General parameters
     b = λ + γ + γ0
     b_star = λ + γ - γ0
@@ -72,10 +62,10 @@ def r(x):
     a_s = -φ_f * τ_s * λ / (φ_s - φ_f)
     l_s = a_s * τ_s * λ / (1 + γ/γ0)
 
-    if τ_f==0:
-        τ_f=1e-8
-    if τ_s==0:
-        τ_s=1e-8
+    if τ_f == 0:
+        τ_f = 1e-8
+    if τ_s == 0:
+        τ_s = 1e-8
 
     # defining ODEs solutions
     Ta = F/λ*(a_f*(1-np.exp(-1/τ_f*t)) + a_s*(1-np.exp(-1/τ_s*t)))
@@ -84,18 +74,28 @@ def r(x):
     return np.hstack((Ta, To))
 
 # Jacobian (computed numerically)
+
+
 def j(x):
     jacob = jacobian_func(r, M, N)
     return jacob(x)
 
 # Directional second derivative
+
+
 def Avv(x, v):
     avv_function = Avv_func(r)
     return avv_function(x, v)
 
 
 # Choose starting parameters
-x = [np.log(1.3/8), np.log(0.0875), np.log(0.007), 0.4875] # λ, γ, γ0, F = x[0], x[1], x[2], x[3]
+param_values_cmip5 = [
+    np.log(1.13/7.3), np.log(0.74/7.3), np.log(0.74/91), 6.9/7.3]
+data_point = r(param_values_cmip5)
+noisy_data_point = data_point + \
+    np.random.normal(0., 0.5, size=data_point.shape)
+# λ, γ, γ0, F = x[0], x[1], x[2], x[3]
+x = [np.log(1.3/8), np.log(0.0875), np.log(0.007), 0.4875]
 v = initial_velocity(x, j, Avv)
 data_points = r(x)
 
@@ -104,7 +104,7 @@ data_points = r(x)
 
 def callback(g):
     # Integrate until the norm of the velocity has grown by a factor of 10
-    # and print out some diagnotistic along the way
+    # and print out some diagnostic along the way
     _, s, _ = np.linalg.svd(j(g.xs[-1]))
     print(
         "Iteration: %i, tau: %f, |v| = %f, eigenvalue: %.20f"
@@ -136,6 +136,14 @@ def plot_geodesic_path(geo, colors, labels, N):
 
 
 plot_geodesic_path(geo, colors, labels, N)
+
+# Call the recalibration function
+result = fit.recalibrate_parameters(initial_params, fixed_param, observed_data)
+
+# Print recalibrated parameters
+print("Recalibrated parameters:", result.x)
+print("Optimization success:", result.success)
+print("Optimization message:", result.message)
 
 """ 
 
@@ -348,4 +356,4 @@ geo_new_new = Geodesic(r_new_new, j_new_new, Avv_new_new, [opt_gamma0], v_new_ne
 geo_new_new.integrate(480)
 
 plot_geodesic_path(geo_new, colors[2], labels[2], N_new_new)
-""" 
+"""
