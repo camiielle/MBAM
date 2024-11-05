@@ -4,6 +4,7 @@ from mbam.geodesic import Geodesic
 from mbam.finite_difference import Avv_func, AvvCD4, jacobian_func
 from mbam.utils import initial_velocity
 from scipy.optimize import minimize
+from scipy.sparse.linalg import eigsh
 
 """
 Multimodel means of values calibrated for the CMIP5 models mentioned in the article​
@@ -85,16 +86,29 @@ def Avv(x, v):
     avv_function = Avv_func(r)
     return avv_function(x, v)
 
+def return_sloppiest_eigendirection(g):
+    eigenvalues, eigenvectors = np.linalg.eigh(g)
+    
+    sorted_indices = np.argsort(eigenvalues)
+    eigenvalues = eigenvalues[sorted_indices]
+    eigenvectors = eigenvectors[:, sorted_indices]
+    sloppiest_eigendirection = eigenvectors[:, 0]
+
+    return sloppiest_eigendirection
+
+
+    
 
 # Choose starting parameters
 X = [1.13/7.3, 0.74/7.3, 0.74/91, 6.9/7.3]  # λ, γ, γo, F
 x = np.log(X)
+print("Sum of predictions squared is:")
+print(np.sum(r(x)**2))
 v = initial_velocity(x, j, Avv)
 noisy_data_point = r(x) + \
-    np.random.normal(0., 0.5, size=r(x).shape)
+    np.random.normal(0., 0.01, size=r(x).shape)
 
 # Callback
-
 
 def callback(g):
     # Integrate until the norm of the velocity has grown by a factor of 10
@@ -132,6 +146,46 @@ def plot_geodesic_path(geo, colors, labels, N):
 
 plot_geodesic_path(geo, colors, labels, N)
 
+
+j_i= j(x)
+g_i = j_i.T @ j_i 
+
+sloppiest_eigendirection = return_sloppiest_eigendirection(g_i)
+indices = np.arange(len(sloppiest_eigendirection))
+plt.figure(figsize=(10, 5))
+plt.bar(indices, sloppiest_eigendirection, color='blue')
+plt.axhline(0, color='gray', linewidth=0.5)  
+plt.title("Sloppiest Eigendirection", fontsize=16, color='black', backgroundcolor='white', pad=20)
+plt.xticks(indices, labels, rotation=45, ha='right')  #
+plt.xlabel("Parameter")
+plt.ylabel("Eigenvector Component")
+plt.gca().set_facecolor("white") 
+plt.gcf().patch.set_facecolor("white")  
+
+# Display the plot
+plt.tight_layout() 
+plt.show()
+
+
+j_final= j(geo.xs[-1])
+g_final = j_final.T @ j_final 
+final_sloppiest_eigendirection = return_sloppiest_eigendirection(g_final)
+indices = np.arange(len(final_sloppiest_eigendirection))
+plt.figure(figsize=(10, 5))
+plt.bar(indices, final_sloppiest_eigendirection, color='blue')
+plt.axhline(0, color='gray', linewidth=0.5)  
+plt.title("Sloppiest Eigendirection", fontsize=16, color='black', backgroundcolor='white', pad=20)
+plt.xticks(indices, labels, rotation=45, ha='right')  #
+plt.xlabel("Parameter")
+plt.ylabel("Eigenvector Component")
+plt.gca().set_facecolor("white") 
+plt.gcf().patch.set_facecolor("white")  
+
+# Display the plot
+plt.tight_layout() 
+plt.show()
+
+
 """
 first run of MBAM shows we hit boundary gamma->0
 I calculate the analytical limit of the model using Mathematica
@@ -151,6 +205,8 @@ def objective(y):
     msl = np.mean((predicted - noisy_data_point) ** 2)
     return msl
 
+def RMS_rel_differences(new_predictions, original_data):
+    return np.sqrt(np.mean((2*(new_predictions-original_data)/(new_predictions+original_data))**2))
 
 def j_new(y):
     jacob = jacobian_func(r_new, M, N_new)
@@ -165,7 +221,10 @@ def Avv_new(y, v_new):
 # Choose starting parameters
 y0 = [-1.23981994, -4.76168556,  0.25466911]
 y_result = minimize(objective, y0, method='L-BFGS-B')
+print(y_result)
 y = y_result.x  # new parameters obtained by fitting to original model predictions
+print("RMS is:")
+print(RMS_rel_differences(r_new(y), r(x)))
 v_new = initial_velocity(y, j_new, Avv_new)
 
 
@@ -217,7 +276,10 @@ def Avv_new_new(z, v_new_new):
 # Choose starting parameters
 z0 = [-4.76168556,  4.4]
 z_result= minimize(objective_new_new, z0, method='L-BFGS-B')
+print(z_result)
 z = z_result.x  # new parameters obtained by fitting to original model predictions
+print("RMS is:")
+print(RMS_rel_differences(r_new_new(z), r(x)))
 v_new_new = initial_velocity(z, j_new_new, Avv_new_new)
 
 
@@ -253,5 +315,8 @@ def objective_new_new_new(c):
     msl = np.mean((predicted - noisy_data_point) ** 2)
     return msl
 
-final_c=minimize(objective_new_new_new, 4., method='L-BFGS-B')
+final_c=minimize(objective_new_new_new, 4., method='L-BFGS-B').x
+print("RMS is:")
+print(RMS_rel_differences(r_new_new_new(final_c), r(x)))
 print(final_c)
+
