@@ -105,8 +105,9 @@ x = np.log(X)
 print("Sum of predictions squared is:")
 print(np.sum(r(x)**2))
 v = initial_velocity(x, j, Avv)
-noisy_data_point = r(x) + \
-    np.random.normal(0., 0.01, size=r(x).shape)
+noisy_data_point = r(x) + np.random.normal(0., 0.02*r(x), size=r(x).shape)
+#noisy_data_point = r(x)
+print(f"Noisy point:{noisy_data_point}")
 
 # Callback
 
@@ -137,10 +138,11 @@ labels = ['logλ', 'logγ', 'logγo', 'logF']
 def plot_geodesic_path(geo, colors, labels, N):
     for i in range(N):
         plt.plot(geo.ts, geo.xs[:, i], label=labels[i], color=colors[i])
-    plt.xlabel("Tau")
-    plt.ylabel("Parameter Values")
+    plt.xlabel("Tau", fontsize=16)
+    plt.ylabel("Parameter Values", fontsize=16)
     plt.grid(True, which='both', linestyle='--', linewidth=0.5, alpha=0.7)
-    plt.legend()
+    plt.legend(fontsize=16)
+    plt.tick_params(axis='both', labelsize=14)
     plt.show()
 
 
@@ -155,10 +157,11 @@ indices = np.arange(len(sloppiest_eigendirection))
 plt.figure(figsize=(10, 5))
 plt.bar(indices, sloppiest_eigendirection, color='blue')
 plt.axhline(0, color='gray', linewidth=0.5)  
-plt.title("Sloppiest Eigendirection at initial point", fontsize=16, color='black', backgroundcolor='white', pad=20)
+plt.title("Sloppiest Eigendirection at initial point", fontsize=25, color='black', backgroundcolor='white', pad=20)
 plt.xticks(indices, labels, rotation=45, ha='right')  #
-plt.xlabel("Bare Parameter")
-plt.ylabel("Bare Parameter Component")
+plt.xlabel("Bare Parameter", fontsize=18)
+plt.ylabel("Bare Parameter Component", fontsize=18)
+plt.tick_params(axis='both', labelsize=16)
 plt.gca().set_facecolor("white") 
 plt.gcf().patch.set_facecolor("white")  
 
@@ -174,10 +177,11 @@ indices = np.arange(len(final_sloppiest_eigendirection))
 plt.figure(figsize=(10, 5))
 plt.bar(indices, final_sloppiest_eigendirection, color='blue')
 plt.axhline(0, color='gray', linewidth=0.5)  
-plt.title("Sloppiest Eigendirection at Boundary", fontsize=16, color='black', backgroundcolor='white', pad=20)
+plt.title("Sloppiest Eigendirection at Boundary", fontsize=25, color='black', backgroundcolor='white', pad=20)
 plt.xticks(indices, labels, rotation=45, ha='right')  #
-plt.xlabel("Bare Parameter")
-plt.ylabel("Bare Parameter Component")
+plt.xlabel("Bare Parameter", fontsize=18)
+plt.ylabel("Bare Parameter Component", fontsize=18)
+plt.tick_params(axis='both', labelsize=16)
 plt.gca().set_facecolor("white") 
 plt.gcf().patch.set_facecolor("white")  
 
@@ -208,6 +212,9 @@ def objective(y):
 def RMS_rel_differences(new_predictions, original_data):
     return np.sqrt(np.mean((2*(new_predictions-original_data)/(new_predictions+original_data))**2))
 
+def RRMSE(new_predictions, original_data):
+    return np.sqrt(np.mean((new_predictions - original_data) ** 2))/np.linalg.norm(original_data)
+
 def j_new(y):
     jacob = jacobian_func(r_new, M, N_new)
     return jacob(y)
@@ -223,8 +230,13 @@ y0 = [-1.23981994, -4.76168556,  0.25466911]
 y_result = minimize(objective, y0, method='L-BFGS-B')
 print(y_result)
 y = y_result.x  # new parameters obtained by fitting to original model predictions
+print("Fit Error (Objective Function Value):")
+print(y_result.fun)
+print("RRMSE is:")
+print(RRMSE(r_new(y), noisy_data_point))
 print("RMS is:")
-print(RMS_rel_differences(r_new(y), r(x)))
+print(RMS_rel_differences(r_new(y), noisy_data_point))
+print(np.linalg.norm(noisy_data_point))
 v_new = initial_velocity(y, j_new, Avv_new)
 
 
@@ -278,8 +290,10 @@ z0 = [-4.76168556,  4.4]
 z_result= minimize(objective_new_new, z0, method='L-BFGS-B')
 print(z_result)
 z = z_result.x  # new parameters obtained by fitting to original model predictions
-print("RMS is:")
-print(RMS_rel_differences(r_new_new(z), r(x)))
+print("Fit Error (Objective Function Value):")
+print(z_result.fun)
+print("RRMSE is:")
+print(RRMSE(r_new_new(z), noisy_data_point))
 v_new_new = initial_velocity(z, j_new_new, Avv_new_new)
 
 
@@ -289,7 +303,7 @@ def callback_new_new(g):
         "Iteration: %i, tau: %f, |v| = %f, eigenvalue: %.25f"
         % (len(g.vs), g.ts[-1], np.linalg.norm(g.vs[-1]), s[-1])
     )
-    return np.linalg.norm(g.vs[-1]) < 214
+    return np.linalg.norm(g.vs[-1]) < 210
 
 
 # Construct the geodesic
@@ -315,8 +329,14 @@ def objective_new_new_new(c):
     msl = np.mean((predicted - noisy_data_point) ** 2)
     return msl
 
-final_c=minimize(objective_new_new_new, 4., method='L-BFGS-B').x
-print("RMS is:")
-print(RMS_rel_differences(r_new_new_new(final_c), r(x)))
+result_c=minimize(objective_new_new_new, 4., method='L-BFGS-B')
+final_c=result_c.x
+print("Fit Error (Objective Function Value):")
+print(result_c.fun)
+print("RRMSE is:")
+print(RRMSE(r_new_new_new(final_c), noisy_data_point))
 print(final_c)
+print("RMS is:")
+print(RMS_rel_differences(r_new_new_new(final_c), noisy_data_point))
+
 
