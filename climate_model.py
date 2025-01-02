@@ -10,9 +10,7 @@ from scipy.sparse.linalg import eigsh
 Multimodel means of values calibrated for the CMIP5 models mentioned in the article​
 https://journals.ametsoc.org/view/journals/clim/26/6/jcli-d-12-00196.1.xml
 
-C = 7.3 W⋅yr/m²/K     # Upper layer heat capacity
-C0 = 91 W⋅yr/m²/K     # Lower layer heat capacity
-lambda_ = 1.13/7.3 y-1
+lambda_ = 1.13/7.3 yr-1
 gamma = 0.74/7.3 yr^-1
 gamma0 = 0.74/91 yr^-1
 F = 6.9/7.3 K/yr     # External forcing for a 4x CO2 increase divided by C
@@ -30,15 +28,14 @@ predictions. Then, the output of r(x) should be a vector length M the
 output of j(x) (i.e., jacobian) should be an M times N matrix.
 The output of Avv(x,v) should be a vector of length M.
 """
-np.random.seed(42)
+np.random.seed(42) 
 
 M = 10  # number of predictions
 N = 4  # number of parameters
 
 t = np.array([0.01, 0.1, 1., 10., 100.])  # yr
-# t = np.array([1.,5.,10.])
 
-
+# initial model
 def r(x):
     λ, γ, γo, F = np.exp(x)
     if λ == 0:
@@ -73,15 +70,11 @@ def r(x):
     return np.hstack((Ta, To))
 
 # Jacobian (computed numerically)
-
-
 def j(x):
     jacob = jacobian_func(r, M, N)
     return jacob(x)
 
 # Directional second derivative
-
-
 def Avv(x, v):
     avv_function = Avv_func(r)
     return avv_function(x, v)
@@ -96,32 +89,23 @@ def return_sloppiest_eigendirection(g):
 
     return sloppiest_eigendirection
 
-
-    
-
 # Choose starting parameters
 X = [1.13/7.3, 0.74/7.3, 0.74/91, 6.9/7.3]  # λ, γ, γo, F
 x = np.log(X)
-print("Sum of predictions squared is:")
-print(np.sum(r(x)**2))
 v = initial_velocity(x, j, Avv)
 noisy_data_point = r(x) + np.random.normal(0., 0.02*r(x), size=r(x).shape)
-#noisy_data_point = r(x)
 print(f"Noisy point:{noisy_data_point}")
 
 # Callback
-
 def callback(g):
-    # Integrate until the norm of the velocity has grown by a factor of 10
-    # and print out some diagnostic along the way
+    # print out some diagnostic along the way
     _, s, _ = np.linalg.svd(j(g.xs[-1]))
     print(
         "Iteration: %i, tau: %f, |v| = %f, eigenvalue: %.20f"
         % (len(g.vs), g.ts[-1], np.linalg.norm(g.vs[-1]), s[-1])
     )
     return np.linalg.norm(g.vs[-1]) < 240
-    # return np.linalg.norm(g.vs[-1]) < 1200
-
+    
 
 # Construct the geodesic
 geo = Geodesic(r, j, Avv, x, v, atol=1e-2, rtol=1e-2,
@@ -145,13 +129,11 @@ def plot_geodesic_path(geo, colors, labels, N):
     plt.tick_params(axis='both', labelsize=14)
     plt.show()
 
-
 plot_geodesic_path(geo, colors, labels, N)
 
-
+# plotting sloppiest eigendirection composition at initial point
 j_i= j(x)
 g_i = j_i.T @ j_i 
-
 sloppiest_eigendirection = return_sloppiest_eigendirection(g_i)
 indices = np.arange(len(sloppiest_eigendirection))
 plt.figure(figsize=(10, 5))
@@ -164,12 +146,11 @@ plt.ylabel("Bare Parameter Component", fontsize=18)
 plt.tick_params(axis='both', labelsize=16)
 plt.gca().set_facecolor("white") 
 plt.gcf().patch.set_facecolor("white")  
-
 # Display the plot
 plt.tight_layout() 
 plt.show()
 
-
+# plotting sloppiest eigendirection composition at boundary
 j_final= j(geo.xs[-1])
 g_final = j_final.T @ j_final 
 final_sloppiest_eigendirection = return_sloppiest_eigendirection(g_final)
@@ -192,56 +173,49 @@ plt.show()
 
 """
 first run of MBAM shows we hit boundary gamma->0
-I calculate the analytical limit of the model using Mathematica
+I calculate the analytical limit of the model using Wolfram Mathematica
+the new model and all the related functions are indicated with subscript 1
 """
-N_new = N-1
+N_1 = N-1
 
-
-def r_new(y):
+# defining new model
+def r_1(y):
     λ, γo, F = np.exp(y)
     Ta = F/λ*(1-np.exp(-t*λ))
     To = F/λ*(γo*(1-np.exp(-t*λ))-λ*(1-np.exp(-t*γo)))/(γo-λ)
     return np.hstack((Ta, To))
 
+def j_1(y):
+    jacob = jacobian_func(r_1, M, N_1)
+    return jacob(y)
+
+def Avv_1(y, v_1):
+    avv_function = Avv_func(r_1)
+    return avv_function(y, v_1)
 
 def objective(y):
-    predicted = r_new(y)
-    msl = np.mean((predicted - noisy_data_point) ** 2)
-    return msl
-
-def RMS_rel_differences(new_predictions, original_data):
-    return np.sqrt(np.mean((2*(new_predictions-original_data)/(new_predictions+original_data))**2))
+    predicted = r_1(y)
+    mse = np.mean((predicted - noisy_data_point) ** 2)
+    return mse
 
 def RRMSE(new_predictions, original_data):
     return np.sqrt(np.mean((new_predictions - original_data) ** 2))/np.linalg.norm(original_data)
 
-def j_new(y):
-    jacob = jacobian_func(r_new, M, N_new)
-    return jacob(y)
 
-
-def Avv_new(y, v_new):
-    avv_function = Avv_func(r_new)
-    return avv_function(y, v_new)
-
-
-# Choose starting parameters
+# Choose starting parameters by calibration
 y0 = [-1.23981994, -4.76168556,  0.25466911]
 y_result = minimize(objective, y0, method='L-BFGS-B')
 print(y_result)
 y = y_result.x  # new parameters obtained by fitting to original model predictions
-print("Fit Error (Objective Function Value):")
+print("MSE is:")
 print(y_result.fun)
 print("RRMSE is:")
-print(RRMSE(r_new(y), noisy_data_point))
-print("RMS is:")
-print(RMS_rel_differences(r_new(y), noisy_data_point))
-print(np.linalg.norm(noisy_data_point))
-v_new = initial_velocity(y, j_new, Avv_new)
+print(RRMSE(r_1(y), noisy_data_point))
+v_1 = initial_velocity(y, j_1, Avv_1)
 
 
-def callback_new(g):
-    _, s, _ = np.linalg.svd(j_new(g.xs[-1]))
+def callback_1(g):
+    _, s, _ = np.linalg.svd(j_1(g.xs[-1]))
     print(
         "Iteration: %i, tau: %f, |v| = %f, eigenvalue: %.25f"
         % (len(g.vs), g.ts[-1], np.linalg.norm(g.vs[-1]), s[-1])
@@ -250,93 +224,94 @@ def callback_new(g):
 
 
 # Construct the geodesic
-geo_new = Geodesic(r_new, j_new, Avv_new, y, v_new, atol=1e-2, rtol=1e-2,
-                   parameterspacenorm=False, callback=callback_new)
+geo_1 = Geodesic(r_1, j_1, Avv_1, y, v_1, atol=1e-2, rtol=1e-2,
+                   parameterspacenorm=False, callback=callback_1)
 
 # Integrate
-geo_new.integrate(480)
-plot_geodesic_path(geo_new, [colors[0]] + colors[2:],
-                   [labels[0]]+labels[2:], N_new)
+geo_1.integrate(480)
+plot_geodesic_path(geo_1, [colors[0]] + colors[2:],
+                   [labels[0]]+labels[2:], N_1)
 
 """
-second run of MBAM shows we hit boundary F, lambda go to infinity while their ratio remains finite
-I calculate the analytical limit of the model using Mathematica
+second run of MBAM shows we hit boundary where F, lambda go to infinity while their ratio remains finite
+I calculate the analytical limit of the model using Wolfram Mathematica
+the new model and all the related functions are indicated with subscript 2
 """
-N_new_new = N-2
+N_2 = N-2
 
-def r_new_new(z):
+def r_2(z):
     γo, c = np.exp(z)
     Ta = np.full(M//2, c)
     To = c*(1-np.exp(t*γo))
     return np.hstack((Ta, To))
 
-def objective_new_new(z):
-    predicted = r_new_new(z)
-    msl = np.mean((predicted - noisy_data_point) ** 2)
-    return msl
+def objective_2(z):
+    predicted = r_2(z)
+    mse = np.mean((predicted - noisy_data_point) ** 2)
+    return mse
 
-def j_new_new(z):
-    jacob = jacobian_func(r_new_new, M, N_new_new)
+def j_2(z):
+    jacob = jacobian_func(r_2, M, N_2)
     return jacob(z)
 
 
-def Avv_new_new(z, v_new_new):
-    avv_function = Avv_func(r_new_new)
-    return avv_function(z, v_new_new)
+def Avv_2(z, v_2):
+    avv_function = Avv_func(r_2)
+    return avv_function(z, v_2)
 
 
 # Choose starting parameters
 z0 = [-4.76168556,  4.4]
-z_result= minimize(objective_new_new, z0, method='L-BFGS-B')
+z_result= minimize(objective_2, z0, method='L-BFGS-B')
 print(z_result)
 z = z_result.x  # new parameters obtained by fitting to original model predictions
-print("Fit Error (Objective Function Value):")
+print("MSE is:")
 print(z_result.fun)
 print("RRMSE is:")
-print(RRMSE(r_new_new(z), noisy_data_point))
-v_new_new = initial_velocity(z, j_new_new, Avv_new_new)
+print(RRMSE(r_2(z), noisy_data_point))
+v_2 = initial_velocity(z, j_2, Avv_2)
 
 
-def callback_new_new(g):
-    _, s, _ = np.linalg.svd(j_new_new(g.xs[-1]))
+def callback_2(g):
+    _, s, _ = np.linalg.svd(j_2(g.xs[-1]))
     print(
         "Iteration: %i, tau: %f, |v| = %f, eigenvalue: %.25f"
         % (len(g.vs), g.ts[-1], np.linalg.norm(g.vs[-1]), s[-1])
     )
-    return np.linalg.norm(g.vs[-1]) < 210
+    return np.linalg.norm(g.vs[-1]) < 200
 
 
 # Construct the geodesic
-geo_new_new = Geodesic(r_new_new, j_new_new, Avv_new_new, z, v_new_new, atol=1e-2, rtol=1e-2,
-                   parameterspacenorm=False, callback=callback_new_new)
+geo_2 = Geodesic(r_2, j_2, Avv_2, z, v_2, atol=1e-2, rtol=1e-2,
+                   parameterspacenorm=False, callback=callback_2)
 
 # Integrate
-geo_new_new.integrate(480)
-plot_geodesic_path(geo_new_new, colors[2:],
-                   [labels[2]]+['c'], N_new_new)
+geo_2.integrate(480)
+plot_geodesic_path(geo_2, colors[2:],
+                   [labels[2]]+['c'], N_2)
 """
 third and last run of MBAM shows we hit boundary gamma_o -> 0
-I calculate the analytical limit of the model using Mathematica
+I calculate the analytical limit of the model using Wolfram Mathematica
+the new model and all the related functions are indicated with subscript 3
 """
-def r_new_new_new(c):
+def r_3(c):
     Ta=np.full(M//2, c)
     To=np.full(M//2, 0.)
     return np.hstack((Ta, To))
 
 
-def objective_new_new_new(c):
-    predicted = r_new_new_new(c)
+def objective_3(c):
+    predicted = r_3(c)
     msl = np.mean((predicted - noisy_data_point) ** 2)
     return msl
 
-result_c=minimize(objective_new_new_new, 4., method='L-BFGS-B')
+result_c=minimize(objective_3, 4., method='L-BFGS-B')
 final_c=result_c.x
-print("Fit Error (Objective Function Value):")
+print("MSE is:")
 print(result_c.fun)
 print("RRMSE is:")
-print(RRMSE(r_new_new_new(final_c), noisy_data_point))
-print(final_c)
-print("RMS is:")
-print(RMS_rel_differences(r_new_new_new(final_c), noisy_data_point))
+print(RRMSE(r_3(final_c), noisy_data_point))
+
+
 
 
